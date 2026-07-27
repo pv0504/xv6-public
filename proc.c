@@ -7,6 +7,10 @@
 #include "proc.h"
 #include "spinlock.h"
 
+struct spinlock phistory_lock;
+struct proc_history phistory[MAX_HISTORY];
+int phistory_count = 0;
+
 struct {
   struct spinlock lock;
   struct proc proc[NPROC];
@@ -24,6 +28,8 @@ void
 pinit(void)
 {
   initlock(&ptable.lock, "ptable");
+  initlock(&phistory_lock, "phistory");  // HISTORY LOCK
+
 }
 
 // Must be called with interrupts disabled
@@ -221,6 +227,23 @@ fork(void)
   return pid;
 }
 
+static void
+record_history(struct proc *p)
+{
+    acquire(&phistory_lock);
+
+    if(phistory_count < MAX_HISTORY){
+        struct proc_history *h = &phistory[phistory_count++];
+
+        h->pid = p->pid;
+        safestrcpy(h->name, p->name, sizeof(h->name));
+        h->mem_usage = p->sz;
+        h->start_time = p->start_time;
+    }
+
+    release(&phistory_lock);
+}
+
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait() to find out it exited.
@@ -260,7 +283,7 @@ exit(void)
         wakeup1(initproc);
     }
   }
-
+  record_history(curproc);
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
   sched();
@@ -532,3 +555,5 @@ procdump(void)
     cprintf("\n");
   }
 }
+
+

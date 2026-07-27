@@ -101,6 +101,8 @@ exec(char *path, char **argv)
   curproc->tf->esp = sp;
   switchuvm(curproc);
   freevm(oldpgdir);
+  curproc->start_time = ticks;
+  curproc->mem_usage = curproc->sz;
   return 0;
 
  bad:

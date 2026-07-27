@@ -157,6 +157,13 @@ main(void)
 
   // Read and run input commands.
   while(getcmd(buf, sizeof(buf)) >= 0){
+    if (strcmp(buf, "history\n") == 0) {
+      if (gethistory() < 0) { 
+        printf(2, "history: failed\n");
+      }
+      continue; 
+    }
+
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
       // Chdir must be called by the parent, not the child.
       buf[strlen(buf)-1] = 0;  // chop \n

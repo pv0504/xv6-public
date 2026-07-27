@@ -49,6 +49,8 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  uint start_time;
+  uint mem_usage;
 };
 
 // Process memory is laid out contiguously, low addresses first:
@@ -56,3 +58,15 @@ struct proc {
 //   original data and bss
 //   fixed-size stack
 //   expandable heap
+#define MAX_HISTORY 64
+
+struct proc_history {
+    int pid;
+    char name[16];
+    uint mem_usage;
+    uint start_time;
+};
+
+extern struct spinlock phistory_lock;
+extern struct proc_history phistory[MAX_HISTORY];
+extern int phistory_count;

@@ -89,3 +89,28 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+int sys_gethistory(void) {
+  acquire(&phistory_lock);
+
+  int count = phistory_count; 
+
+  for (int i = 0; i < count - 1; i++) {
+    for (int j = 0; j < count - i - 1; j++) {
+      if (phistory[j].start_time > phistory[j + 1].start_time) {
+        // Swap it
+        struct proc_history temp = phistory[j];
+        phistory[j] = phistory[j + 1];
+        phistory[j + 1] = temp;
+      }
+    }
+  }
+
+  for (int i = 0; i < count; i++) {
+    struct proc_history *ph = &phistory[i];
+    cprintf("%d %s %d\n", ph->pid, ph->name, ph->mem_usage);
+  }
+
+  release(&phistory_lock);
+  return count;
+}
