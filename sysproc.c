@@ -7,6 +7,9 @@
 #include "mmu.h"
 #include "proc.h"
 
+uint blocked_calls[MAX_SH] = {0};  // Define and initialize
+int current_sh = 0;
+
 int
 sys_fork(void)
 {
@@ -114,3 +117,20 @@ int sys_gethistory(void) {
   release(&phistory_lock);
   return count;
 }
+
+int sys_block(void){
+  int id;
+  if(argint(0, &id)<0){
+    return -1;
+  }
+  return block(id);
+}
+
+int sys_unblock(void){
+  int id;
+  if(argint(0,&id)<0){
+    return -1;
+  }
+  return unblock(id);
+}
+

@@ -33,6 +33,8 @@ struct dinode {
   short nlink;          // Number of links to inode in file system
   uint size;            // Size of file (bytes)
   uint addrs[NDIRECT+1];   // Data block addresses
+  uchar mode;  // added mode.
+  uchar padding[128 - (4*sizeof(short) + sizeof(uint) + (NDIRECT+1)*sizeof(uint) + sizeof(uchar))];
 };
 
 // Inodes per block.

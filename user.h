@@ -23,7 +23,10 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
-int gethistory(void); // Declare gethistory
+int gethistory(void);
+int block(int);
+int unblock(int);
+int chmod(const char *path, int mode);
 
 // ulib.c
 int stat(const char*, struct stat*);

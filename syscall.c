@@ -104,6 +104,9 @@ extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
 extern int sys_gethistory(void);
+extern int sys_block(void);
+extern int sys_unblock(void);
+extern int sys_chmod(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -128,16 +131,63 @@ static int (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_gethistory] sys_gethistory,
+[SYS_block] sys_block,
+[SYS_unblock] sys_unblock,
+[SYS_chmod] sys_chmod,
 };
 
+// System call dispatcher.
+//
+// Every user-level system call reaches this function.
+// The system call number is stored in %eax by the assembly wrapper in usys.S.
+//
+// For the block/unblock feature:
+//
+// blocked_calls[i] stores the blocked syscall bitmask for the i-th shell.
+//
+// Whenever a new shell is created (through exec("sh")), it inherits the
+// blocked syscall mask of its parent shell. Before dispatching a syscall,
+// we check whether that syscall is blocked for the current shell. If so,
+// we return -1 without executing the syscall.
 void
 syscall(void)
 {
   int num;
   struct proc *curproc = myproc();
 
+  // System call number requested by the user process.
   num = curproc->tf->eax;
+
+  // Keeps track of which shell's blocked syscall table should be used.
+  int present_top = current_sh;
+
+  // SYS_exec == 7.
+  // When exec() is invoked for a new shell, inherit the parent's
+  // blocked syscall mask.
+  if(num == 7){
+    current_sh++;
+
+    if(current_sh < MAX_SH){
+      blocked_calls[current_sh] = blocked_calls[current_sh - 1];
+    }
+
+    // Child shells use the newly created blocked syscall table.
+    if(curproc->parent->pid > 2)
+      present_top++;
+  }
+
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+
+    // If this syscall is blocked for the current shell,
+    // reject it without invoking the actual syscall handler.
+    if(present_top > 0 &&
+       (blocked_calls[present_top - 1] & (1U << num))){
+      cprintf("syscall %d is blocked\n", num);
+      curproc->tf->eax = -1;
+      return;
+    }
+
+    // Execute the requested system call.
     curproc->tf->eax = syscalls[num]();
   } else {
     cprintf("%d %s: unknown sys call %d\n",

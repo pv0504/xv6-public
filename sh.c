@@ -142,6 +142,18 @@ getcmd(char *buf, int nbuf)
 }
 
 int
+startswith(char *s, char *prefix)
+{
+    while(*prefix){
+        if(*s != *prefix)
+            return 0;
+        s++;
+        prefix++;
+    }
+    return 1;
+}
+
+int
 main(void)
 {
   static char buf[100];
@@ -164,6 +176,41 @@ main(void)
       continue; 
     }
 
+    if(startswith(buf, "block ")){
+        char *arg = buf + 6;
+        arg[strlen(arg)-1] = '\0';
+
+        if(block(atoi(arg)) < 0)
+            printf(2, "block failed\n");
+        continue;
+    }
+
+    if(startswith(buf, "unblock ")){
+        char *arg = buf + 8;
+        arg[strlen(arg)-1] = '\0';
+
+        if(unblock(atoi(arg)) < 0)
+            printf(2, "unblock failed\n");
+        continue;
+    }
+
+    if(startswith(buf, "chmod ")){
+        char *arg = buf + 6;
+        arg[strlen(arg)-1] = '\0';
+
+        char *mode = strchr(arg, ' ');
+        if(mode == 0){
+            printf(2, "chmod: missing mode\n");
+            continue;
+        }
+
+        *mode++ = '\0';
+
+        if(chmod(arg, atoi(mode)) < 0)
+            printf(2, "chmod failed\n");
+
+        continue;
+    }
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
       // Chdir must be called by the parent, not the child.
       buf[strlen(buf)-1] = 0;  // chop \n

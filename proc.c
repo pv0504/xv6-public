@@ -265,6 +265,12 @@ exit(void)
     }
   }
 
+  if(current_sh > 0){
+    current_sh-=1;
+    // cprintf("Exited.. with current number of shells : %d\n",current_sh);
+  }else{
+    cprintf("allocated space is small for the stack\n");
+  }
   begin_op();
   iput(curproc->cwd);
   end_op();
@@ -556,4 +562,32 @@ procdump(void)
   }
 }
 
+int block(int id)
+{
+  if (id == 1 || id == 2 || id < 0 || id >= MAX_SYSCALLS)
+  {
+    return -1;
+  }
+  struct proc *curr_proc = myproc();
+  if(strncmp(curr_proc->name, "sh",2)!=0) return -1;
+  blocked_calls[current_sh] |= (1U << id);
+  return 0;
+}
 
+int unblock(int id)
+{
+  if (id == 1 || id == 2 || id < 0 || id >= MAX_SYSCALLS)
+  {
+    return -1;
+  }
+  struct proc *curr_proc = myproc();
+  if(strncmp(curr_proc->name, "sh" , 2) != 0) return -1;
+  if (current_sh > 0) { 
+    uint parent_blocked = blocked_calls[current_sh - 1];
+    if ((parent_blocked & (1U << id))) {
+        return -1; // Parent didn't block this call
+    }
+  }
+  blocked_calls[current_sh] &= ~(1U << id);
+  return 0;
+}

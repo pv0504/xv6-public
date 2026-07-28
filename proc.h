@@ -1,3 +1,4 @@
+#define MAX_SYSCALLS 30
 // Per-CPU state
 struct cpu {
   uchar apicid;                // Local APIC ID

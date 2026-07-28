@@ -6,7 +6,13 @@
 #include "defs.h"
 #include "x86.h"
 #include "elf.h"
-
+#include "traps.h"
+#include "spinlock.h"
+#include "sleeplock.h"
+#include "fs.h"
+#include "file.h"  // This contains struct inode definition
+#include "fcntl.h" // For file mode constants
+#include "stat.h"
 int
 exec(char *path, char **argv)
 {
@@ -27,6 +33,12 @@ exec(char *path, char **argv)
     return -1;
   }
   ilock(ip);
+  if(ip->type != T_DEV && !(ip->mode & 0b100)) {
+    iunlockput(ip);
+    end_op();
+    cprintf("Operation execute failed\n");
+    return -1;
+  }
   pgdir = 0;
 
   // Check ELF header

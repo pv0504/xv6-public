@@ -230,6 +230,7 @@ ialloc(ushort type)
   din.type = xshort(type);
   din.nlink = xshort(1);
   din.size = xint(0);
+  din.mode = 0b111; // default mode (rwx)
   winode(inum, &din);
   return inum;
 }
