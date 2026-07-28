@@ -43,8 +43,8 @@ kbdgetc(void)
   return c;
 }
 
-void
+int
 kbdintr(void)
 {
-  consoleintr(kbdgetc);
+  return consoleintr(kbdgetc);
 }

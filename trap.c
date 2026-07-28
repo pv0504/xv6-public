@@ -36,6 +36,8 @@ idtinit(void)
 void
 trap(struct trapframe *tf)
 {
+  int should_yield = 0;
+
   if(tf->trapno == T_SYSCALL){
     if(myproc()->killed)
       exit();
@@ -56,21 +58,27 @@ trap(struct trapframe *tf)
     }
     lapiceoi();
     break;
+
   case T_IRQ0 + IRQ_IDE:
     ideintr();
     lapiceoi();
     break;
+
   case T_IRQ0 + IRQ_IDE+1:
-    // Bochs generates spurious IDE1 interrupts.
     break;
+
   case T_IRQ0 + IRQ_KBD:
-    kbdintr();
+    if(kbdintr() == TASK_YIELD && myproc())
+      should_yield = 1;
     lapiceoi();
     break;
+
   case T_IRQ0 + IRQ_COM1:
-    uartintr();
+    if(uartintr() == TASK_YIELD && myproc())
+      should_yield = 1;
     lapiceoi();
     break;
+
   case T_IRQ0 + 7:
   case T_IRQ0 + IRQ_SPURIOUS:
     cprintf("cpu%d: spurious interrupt at %x:%x\n",
@@ -94,9 +102,27 @@ trap(struct trapframe *tf)
     myproc()->killed = 1;
   }
 
-  // Force process exit if it has been killed and is in user space.
-  // (If it is still executing in the kernel, let it keep running
-  // until it gets to the regular system call return.)
+  /* Added for Ctrl+B / Ctrl+F */
+  if(should_yield)
+    yield_no_state_change();
+
+  /* Added for Ctrl+G */
+  if(myproc() && (tf->cs & 3) == DPL_USER && myproc()->handler_pending) {
+
+    struct proc *p = myproc();
+
+    if(p->signal_handler){
+      uint user_esp = tf->esp - 4;
+      uint return_addr = tf->eip;
+      if(copyout(p->pgdir, user_esp, (char *)&return_addr, 4) >= 0){
+        tf->esp = user_esp;
+        tf->eip = (uint)p->signal_handler;
+      }
+    }
+
+    p->handler_pending = 0;
+  }
+
   if(myproc() && myproc()->killed && (tf->cs&3) == DPL_USER)
     exit();
 

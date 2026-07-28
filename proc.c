@@ -117,6 +117,9 @@ found:
   p->context = (struct context*)sp;
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
+  
+  p->signal_handler = 0;    // No handler initially
+  p->handler_pending = 0;
 
   return p;
 }
@@ -312,6 +315,7 @@ wait(void)
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->parent != curproc)
         continue;
+      if(curproc->pid==2 && p->state==SUSPENDED) continue;
       havekids = 1;
       if(p->state == ZOMBIE){
         // Found one.
@@ -420,6 +424,14 @@ yield(void)
   release(&ptable.lock);
 }
 
+void
+yield_no_state_change(void)
+{
+  acquire(&ptable.lock);  //DOC: yieldlock
+  sched();
+  release(&ptable.lock);
+}
+
 // A fork child's very first scheduling by scheduler()
 // will swtch here.  "Return" to user space.
 void
@@ -515,7 +527,7 @@ kill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
-      if(p->state == SLEEPING)
+      if(p->state == SLEEPING || p->state == SUSPENDED)
         p->state = RUNNABLE;
       release(&ptable.lock);
       return 0;
@@ -538,7 +550,8 @@ procdump(void)
   [SLEEPING]  "sleep ",
   [RUNNABLE]  "runble",
   [RUNNING]   "run   ",
-  [ZOMBIE]    "zombie"
+  [ZOMBIE]    "zombie",
+  [SUSPENDED] "suspended"
   };
   int i;
   struct proc *p;
@@ -591,3 +604,74 @@ int unblock(int id)
   blocked_calls[current_sh] &= ~(1U << id);
   return 0;
 }
+
+void killp() {
+  struct proc *p;
+  cprintf("Ctrl-C is detected by xv6\n");
+  acquire(&ptable.lock);
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+      if (p->pid > 2 && p->state!=UNUSED) { 
+          p->killed = 1;
+          if(p->state == SLEEPING || p->state==SUSPENDED)
+          p->state = RUNNABLE;
+      }
+  }
+  release(&ptable.lock);
+}
+
+
+struct proc* get_proc(int x){
+  struct proc *p;
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    if(p->pid==x) return p;
+  }
+  return 0;
+}
+
+void suspend_all() {
+  struct proc *p,*init_proc,*sh;
+  acquire(&ptable.lock);  
+  cprintf("Ctrl-B is detected by xv6\n");
+
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+      if (p->pid > 2 && (p->state==RUNNING || p->state==RUNNABLE || p->state==SLEEPING)) {
+          p->state=SUSPENDED;
+      }
+  }
+  sh=get_proc(2);
+  if(sh->state==SLEEPING) sh->state=RUNNABLE;
+  release(&ptable.lock);
+  
+}
+
+void resume_all() {
+  struct proc *p;
+  cprintf("Ctrl-F is detected by xv6\n");
+  acquire(&ptable.lock);
+  // cprintf("current pid is %d and %d ",myproc()->pid,myproc()->state);
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+      if (p->pid > 2 && p->state==SUSPENDED){
+            p->state = RUNNABLE;
+            get_proc(2)->state=SLEEPING;
+      }
+      else if (p->pid > 2 && p->state==RUNNING){
+        p->state = RUNNABLE;
+      }
+  }
+  release(&ptable.lock);
+}
+
+
+
+void invoke_custom_handler(){
+  cprintf("Ctrl-G is detected by xv6\n");
+  struct proc *p;
+  acquire(&ptable.lock);
+  for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+      if (p->pid > 2 && p->state!=UNUSED && p->signal_handler != 0) {
+          p->handler_pending=1;
+      }
+  }
+  release(&ptable.lock);
+}
+

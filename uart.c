@@ -70,8 +70,8 @@ uartgetc(void)
   return inb(COM1+0);
 }
 
-void
+int
 uartintr(void)
 {
-  consoleintr(uartgetc);
+  return consoleintr(uartgetc);
 }

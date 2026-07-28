@@ -107,6 +107,7 @@ extern int sys_gethistory(void);
 extern int sys_block(void);
 extern int sys_unblock(void);
 extern int sys_chmod(void);
+extern int sys_signal(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -134,6 +135,7 @@ static int (*syscalls[])(void) = {
 [SYS_block] sys_block,
 [SYS_unblock] sys_unblock,
 [SYS_chmod] sys_chmod,
+[SYS_signal] sys_signal,
 };
 
 // System call dispatcher.

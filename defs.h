@@ -19,7 +19,7 @@ void            bwrite(struct buf*);
 // console.c
 void            consoleinit(void);
 void            cprintf(char*, ...);
-void            consoleintr(int(*)(void));
+int             consoleintr(int(*)(void));
 void            panic(char*) __attribute__((noreturn));
 
 // exec.c
@@ -70,7 +70,7 @@ void            kinit1(void*, void*);
 void            kinit2(void*, void*);
 
 // kbd.c
-void            kbdintr(void);
+int             kbdintr(void);
 
 // lapic.c
 void            cmostime(struct rtcdate *r);
@@ -120,6 +120,7 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
+void            yield_no_state_change(void);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -167,7 +168,7 @@ extern struct spinlock tickslock;
 
 // uart.c
 void            uartinit(void);
-void            uartintr(void);
+int             uartintr(void);
 void            uartputc(int);
 
 // vm.c

@@ -14,6 +14,7 @@ struct cpu {
 extern struct cpu cpus[NCPU];
 extern int ncpu;
 
+typedef void (*sighandler_t)(void);
 //PAGEBREAK: 17
 // Saved registers for kernel context switches.
 // Don't need to save all the segment registers (%cs, etc),
@@ -33,7 +34,7 @@ struct context {
   uint eip;
 };
 
-enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
+enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE, SUSPENDED};
 
 // Per-process state
 struct proc {
@@ -52,6 +53,10 @@ struct proc {
   char name[16];               // Process name (debugging)
   uint start_time;
   uint mem_usage;
+
+  /* ..... SIGNAL HANDLERS ..... */
+  sighandler_t signal_handler;
+  int handler_pending;
 };
 
 // Process memory is laid out contiguously, low addresses first:

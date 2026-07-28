@@ -134,3 +134,13 @@ int sys_unblock(void){
   return unblock(id);
 }
 
+int sys_signal(void){
+  sighandler_t handler;
+  
+  if(argptr(0, (void*)&handler, sizeof(handler)) < 0)
+    return -1;
+    
+  myproc()->signal_handler = handler;
+  return 0;
+}
+

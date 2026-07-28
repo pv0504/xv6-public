@@ -24,3 +24,4 @@
 #define SYS_block 23
 #define SYS_unblock 24
 #define SYS_chmod 25
+#define SYS_signal 26

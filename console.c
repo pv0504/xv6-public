@@ -17,6 +17,11 @@
 
 static void consputc(int);
 
+extern void killp(void);
+extern void suspend_all(void);
+extern void resume_all(void);
+extern void invoke_custom_handler(void);
+
 static int panicked = 0;
 
 static struct {
@@ -188,10 +193,10 @@ struct {
 
 #define C(x)  ((x)-'@')  // Control-x
 
-void
+int
 consoleintr(int (*getc)(void))
 {
-  int c, doprocdump = 0;
+  int c, doprocdump = 0,retVal=0;
 
   acquire(&cons.lock);
   while((c = getc()) >= 0){
@@ -213,6 +218,28 @@ consoleintr(int (*getc)(void))
         consputc(BACKSPACE);
       }
       break;
+    case C('C'):  // Ctrl-C
+      release(&cons.lock);
+      killp();
+      acquire(&cons.lock); 
+      break;
+    case C('B'):
+      release(&cons.lock);
+      suspend_all();
+      retVal= TASK_YIELD;
+      acquire(&cons.lock); 
+      break;
+    case C('F'):
+      release(&cons.lock);
+      resume_all();
+      retVal=TASK_YIELD;
+      acquire(&cons.lock); 
+      break;
+    case C('G'):
+      release(&cons.lock);
+      invoke_custom_handler();
+      acquire(&cons.lock);
+      break;
     default:
       if(c != 0 && input.e-input.r < INPUT_BUF){
         c = (c == '\r') ? '\n' : c;
@@ -230,7 +257,9 @@ consoleintr(int (*getc)(void))
   if(doprocdump) {
     procdump();  // now call procdump() wo. cons.lock held
   }
+  return retVal;
 }
+
 
 int
 consoleread(struct inode *ip, char *dst, int n)
