@@ -121,6 +121,9 @@ int             wait(void);
 void            wakeup(void*);
 void            yield(void);
 void            yield_no_state_change(void);
+int             custom_fork(int,int);
+int             scheduler_start(void);
+void            update_waiting_time(void);
 
 // swtch.S
 void            swtch(struct context**, struct context*);

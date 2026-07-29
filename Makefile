@@ -79,7 +79,8 @@ AS = $(TOOLPREFIX)gas
 LD = $(TOOLPREFIX)ld
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
-CFLAGS = -fno-pic -static -fno-builtin -fno-strict-aliasing -O2 -Wall -MD -ggdb -m32 -fno-omit-frame-pointer -DUSERNAME=$(USERNAME) -DPASSWORD=$(PASSWORD)
+DEFS = -DINIT_PRIORITY=50 -DALPHA=1 -DBETA=2 -DMAX_PRIORITY=100 -DWAIT_THRESHOLD=100
+CFLAGS = -fno-pic -static -fno-builtin -fno-strict-aliasing -O2 -Wall -Wno-array-bounds -MD -ggdb -m32 -fno-omit-frame-pointer -DUSERNAME=$(USERNAME) -DPASSWORD=$(PASSWORD) $(DEFS)
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 ASFLAGS = -m32 -gdwarf-2 -Wa,-divide
 # FreeBSD ld wants ``elf_i386_fbsd''
@@ -186,6 +187,7 @@ UPROGS=\
 	_zombie\
 	_test1\
 	_test2\
+	_test_sched\
 
 fs.img: mkfs README $(UPROGS)
 	./mkfs fs.img README $(UPROGS)

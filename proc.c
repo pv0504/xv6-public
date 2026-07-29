@@ -118,6 +118,22 @@ found:
   memset(p->context, 0, sizeof *p->context);
   p->context->eip = (uint)forkret;
   
+  p->start_later = 0;
+  p->exec_ticks = -1;
+  p->rem_ticks = -1;
+  p->scheduler_change = 0;
+
+  acquire(&tickslock);
+  p->creation_time = ticks;
+  release(&tickslock);
+
+  p->start_time = -1;
+  p->end_time = -1;
+  p->waiting_time = 0;
+  p->context_switches = 0;
+  p->cpu_ticks = 0;
+  p->base_priority = INIT_PRIORITY;
+
   p->signal_handler = 0;    // No handler initially
   p->handler_pending = 0;
 
@@ -293,6 +309,16 @@ exit(void)
     }
   }
   record_history(curproc);
+  
+  curproc->end_time = ticks;
+  int tat = curproc->end_time - curproc->creation_time;
+  int wt =  curproc->waiting_time;
+  int rt = curproc->start_time - curproc->creation_time;
+  int cs = curproc->context_switches;
+  // cprintf("start_time: %d, end_time: %d, tat: %d, wt: %d, rt: %d\n",curproc->start_time,curproc->end_time,tat,wt,rt);
+  // cprintf("exec_time: %d, cpu_tcks: %d, remaining_ticks: %d,exec_ticks: %d\n", tat-wt, curproc->cpu_ticks,curproc->rem_ticks,curproc->exec_ticks);
+  cprintf("PID: %d\nTAT: %d\nWT: %d\nRT: %d\n#CS: %d\n",curproc->pid,tat,wt,rt,cs);
+
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
   sched();
@@ -356,27 +382,60 @@ void
 scheduler(void)
 {
   struct proc *p;
+  struct proc *final;
   struct cpu *c = mycpu();
+
   c->proc = 0;
-  
+
   for(;;){
-    // Enable interrupts on this processor.
+    // Enable interrupts.
     sti();
 
-    // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+
+    final = 0;
+    int curr_priority = 0;
+
+    // Find the highest priority runnable process.
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+      int priority = p->base_priority
+                     - (ALPHA * p->cpu_ticks)
+                     + (BETA * p->waiting_time);
 
-      swtch(&(c->scheduler), p->context);
+      if(priority < 0)
+        priority = 0;
+
+      // Pick higher priority process.
+      // Break ties using smaller PID.
+      if(final == 0 ||
+         priority > curr_priority ||
+         (priority == curr_priority && p->pid < final->pid)){
+        curr_priority = priority;
+        final = p;
+      }
+    }
+
+    if(final){
+      // Count context switches.
+      if(final != c->last_proc){
+        if(c->last_proc)
+          c->last_proc->context_switches++;
+        c->last_proc = final;
+      }
+
+      // Record first execution time.
+      if(final->start_time == -1)
+        final->start_time = ticks;
+
+      // Run the selected process.
+      c->proc = final;
+      switchuvm(final);
+      final->state = RUNNING;
+
+      swtch(&(c->scheduler), final->context);
       switchkvm();
 
       // Process is done running for now.
@@ -613,7 +672,7 @@ void killp() {
       if (p->pid > 2 && p->state!=UNUSED) { 
           p->killed = 1;
           if(p->state == SLEEPING || p->state==SUSPENDED)
-          p->state = RUNNABLE;
+            p->state = RUNNABLE;
       }
   }
   release(&ptable.lock);
@@ -675,3 +734,85 @@ void invoke_custom_handler(){
   release(&ptable.lock);
 }
 
+void update_waiting_time(void){
+  struct proc *p;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == RUNNABLE){
+      p->waiting_time++;
+    }
+  }
+  release(&ptable.lock);
+}
+
+
+int custom_fork(int start_later, int exec_ticks){
+
+  
+  int i, pid;
+  struct proc *np;
+  struct proc *curproc = myproc();
+
+  // Allocate process.
+  if((np = allocproc()) == 0){
+    return -1;
+  }
+  /* ---- i initailsed here --------------------  */
+  np->start_later = start_later;
+  np->exec_ticks = exec_ticks;
+  np->rem_ticks = exec_ticks;
+  np->creation_time = ticks;
+
+  if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
+    kfree(np->kstack);
+    np->kstack = 0;
+    np->state = UNUSED;
+    return -1;
+  }
+  np->sz = curproc->sz;
+  np->parent = curproc;
+  *np->tf = *curproc->tf;
+
+  np->tf->eax = 0;
+
+  for(i = 0; i < NOFILE; i++)
+    if(curproc->ofile[i])
+      np->ofile[i] = filedup(curproc->ofile[i]);
+  np->cwd = idup(curproc->cwd);
+
+  safestrcpy(np->name, curproc->name, sizeof(curproc->name));
+
+  pid = np->pid;
+
+  acquire(&ptable.lock);
+  if(start_later){
+    np->state = SLEEPING;
+    np->scheduler_change = 1;
+  }else{
+    np->state = RUNNABLE;
+  }
+
+  release(&ptable.lock);
+
+  return pid;
+
+
+}
+
+
+int scheduler_start(void){
+  struct proc *p;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state == SLEEPING && p->scheduler_change == 1){
+      
+      p->state = RUNNABLE;
+      if(p->exec_ticks == 0){
+        p->killed = 1;
+      }
+      p->scheduler_change = 0;
+    }
+  }
+  release(&ptable.lock);
+  return 0;
+}

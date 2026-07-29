@@ -25,3 +25,5 @@
 #define SYS_unblock 24
 #define SYS_chmod 25
 #define SYS_signal 26
+#define SYS_custom_fork 27
+#define SYS_scheduler_start 28

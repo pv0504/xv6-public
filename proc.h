@@ -9,6 +9,7 @@ struct cpu {
   int ncli;                    // Depth of pushcli nesting.
   int intena;                  // Were interrupts enabled before pushcli?
   struct proc *proc;           // The process running on this cpu or null
+  struct proc *last_proc;
 };
 
 extern struct cpu cpus[NCPU];
@@ -51,9 +52,20 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
-  uint start_time;
+  int start_time;
   uint mem_usage;
 
+  int start_later;
+  int exec_ticks;
+  int rem_ticks;
+  int scheduler_change;
+
+  int creation_time;
+  int end_time;
+  int waiting_time;
+  int context_switches;
+  int cpu_ticks;
+  int base_priority;
   /* ..... SIGNAL HANDLERS ..... */
   sighandler_t signal_handler;
   int handler_pending;

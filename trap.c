@@ -56,6 +56,26 @@ trap(struct trapframe *tf)
       wakeup(&ticks);
       release(&tickslock);
     }
+    struct proc *p = myproc();
+
+    if (p != 0) {
+        // Update CPU usage statistics for the currently running process.
+        if (p->exec_ticks != -1) {
+            if (p->rem_ticks > 0) {
+                p->rem_ticks--;
+
+                // Kill the process once it has exhausted its allotted CPU time.
+                if (p->rem_ticks == 0)
+                    p->killed = 1;
+            } else {
+                // Safety check in case the remaining ticks are already exhausted.
+                p->killed = 1;
+            }
+        }
+
+        // Count one CPU tick for the running process.
+        p->cpu_ticks++;
+    }
     lapiceoi();
     break;
 

@@ -29,6 +29,8 @@ int unblock(int);
 int chmod(const char *path, int mode);
 typedef void (*sighandler_t)(void);
 int signal(sighandler_t);
+int custom_fork(int,int);
+int scheduler_start(void);
 
 // ulib.c
 int stat(const char*, struct stat*);

@@ -144,3 +144,16 @@ int sys_signal(void){
   return 0;
 }
 
+int sys_custom_fork(void){
+  int start_later, exec_ticks;
+
+  if(argint(0, &start_later) < 0 || argint(1, &exec_ticks) < 0)
+    return -1;
+  
+  return custom_fork(start_later, exec_ticks);
+}
+
+
+int sys_scheduler_start(void){
+  return scheduler_start();
+}
